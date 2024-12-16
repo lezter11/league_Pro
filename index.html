@@ -9,16 +9,69 @@
   <body>
     <h1>League Table</h1>
     <div id="input-section">
-      <label for="team1">Team 1:</label>
-      <input type="text" id="team1" placeholder="Team 1 Name" />
-      <label for="team1-score">Score:</label>
-      <input type="number" id="team1-score" placeholder="0" />
+      <div class="box">
+        <!-- Dropdown for Team 1 -->
+        <div class="box1">
+          <div class="team">
+            <label for="team1">Team 1:</label>
+            <select id="team1">
+              <option value="Kumar">Kumar</option>
+              <option value="Jassi">Jassi</option>
+              <option value="Lezter">Lezter</option>
+            </select>
+          </div>
 
-      <label for="team2">Team 2:</label>
-      <input type="text" id="team2" placeholder="Team 2 Name" />
-      <label for="team2-score">Score:</label>
-      <input type="number" id="team2-score" placeholder="0" />
+          <div class="team">
+            <!-- Dropdown for Team 1 Score -->
+            <label for="team1-score">Score:</label>
+            <select id="team1-score">
+              <option value="0">0</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+              <option value="6">6</option>
+              <option value="7">7</option>
+              <option value="8">8</option>
+              <option value="9">9</option>
+              <option value="10">10</option>
+            </select>
+          </div>
+        </div>
 
+        <!-- Dropdown for Team 2 -->
+        <div class="box1">
+          <div class="team">
+            <label for="team2">Team 2:</label>
+            <select id="team2">
+              <option value="Kumar">Kumar</option>
+              <option value="Jassi">Jassi</option>
+              <option value="Lezter">Lezter</option>
+            </select>
+          </div>
+
+          <div class="team">
+            <!-- Dropdown for Team 2 Score -->
+            <label for="team2-score">Score:</label>
+            <select id="team2-score">
+              <option value="0">0</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+              <option value="6">6</option>
+              <option value="7">7</option>
+              <option value="8">8</option>
+              <option value="9">9</option>
+              <option value="10">10</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Add Match Button -->
       <button onclick="addMatch()">Add Match</button>
     </div>
 
