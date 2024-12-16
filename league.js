@@ -11,18 +11,26 @@ function addMatch() {
     return;
   }
 
+  // Condition for same teams
+  if (team1 === team2) {
+    alert("Please select different teams.");
+    return;
+  }
+
   // Update stats for both teams
   updateTeamStats(team1, team1Score, team2Score);
   updateTeamStats(team2, team2Score, team1Score);
 
-  // Render the updated table
+  // Render the updated table with animation
   renderTable();
 
-  // Clear input fields
-  document.getElementById("team1").value = "";
-  document.getElementById("team2").value = "";
-  document.getElementById("team1-score").value = "";
-  document.getElementById("team2-score").value = "";
+  // Clear input fields with a slight delay to show animations
+  setTimeout(() => {
+    document.getElementById("team1").value = "";
+    document.getElementById("team2").value = "";
+    document.getElementById("team1-score").value = "";
+    document.getElementById("team2-score").value = "";
+  }, 500);
 }
 
 function updateTeamStats(team, goalsFor, goalsAgainst) {
@@ -65,9 +73,16 @@ function renderTable() {
     return tableData[b].points - tableData[a].points;
   });
 
-  for (const team of sortedTeams) {
+  let lastRank = sortedTeams.length - 1;
+
+  for (const [index, team] of sortedTeams.entries()) {
     const stats = tableData[team];
     const row = document.createElement("tr");
+
+    const goalDifference = stats.goalsFor - stats.goalsAgainst;
+    const goalsAgainstColor =
+      stats.goalsAgainst < 0 ? 'style="color: red;"' : "";
+    const goalDifferenceColor = goalDifference < 0 ? 'style="color: red;"' : "";
 
     row.innerHTML = `
       <td>${team}</td>
@@ -75,14 +90,28 @@ function renderTable() {
       <td>${stats.won}</td>
       <td>${stats.drawn}</td>
       <td>${stats.lost}</td>
-      <td>${stats.goalsFor}</td>
-      <td>${stats.goalsAgainst}</td>
-      <td>${stats.goalsFor - stats.goalsAgainst}</td>
+      <td ${goalsAgainstColor}>${stats.goalsFor}</td>
+      <td ${goalsAgainstColor}>${stats.goalsAgainst}</td>
+      <td ${goalDifferenceColor}>${goalDifference}</td>
       <td>${stats.points}</td>
+      <td><button class="delete-button" onclick="deleteMatch('${team}')">Delete</button></td>
     `;
+
+    // Add red color to the last ranked team
+    if (index === lastRank) {
+      row.style.backgroundColor = "red";
+    }
+
+    // Add animation class for table rows
+    row.classList.add("row-animation");
 
     tbody.appendChild(row);
   }
+}
+
+function deleteMatch(team) {
+  delete tableData[team];
+  renderTable();
 }
 
 function setupAudio() {
@@ -95,7 +124,7 @@ function setupAudio() {
   console.log("Audio Stopped");
 
   // Set default volume and loop audio
-  audio.volume = 0.5;
+  audio.volume = 0.3;
   audio.loop = true;
 
   // Add event listener for mute/unmute
