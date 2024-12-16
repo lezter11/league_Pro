@@ -23,25 +23,102 @@ h1 {
   color: #333;
 }
 
+/* Input Section Styling */
 #input-section {
   margin: 20px auto;
   padding: 10px;
   background: #fff;
   border: 1px solid #ddd;
   border-radius: 5px;
-  display: inline-block;
+  display: flex;
+  flex-direction: column;
   width: 90%;
   max-width: 600px;
   box-sizing: border-box;
 }
 
-#input-section input {
+/* Input and Select Field Styling */
+#input-section input,
+select {
   margin: 5px;
-  padding: 5px;
+  padding: 10px;
+  font-size: 16px;
+  border-radius: 5px;
+  border: 2px solid #ddd;
+  outline: none;
+  transition: background-color 0.3s ease, transform 0.3s ease;
   width: calc(50% - 20px);
   box-sizing: border-box;
 }
 
+#input-section input:focus,
+select:focus {
+  background-color: #e9f7fe;
+  border: 2px solid #007bff;
+  transform: scale(1.05);
+}
+
+#input-section input:hover,
+select:hover {
+  background-color: #f0f8ff;
+}
+
+/* Box Flex Layout */
+.box {
+  display: flex;
+  justify-content: space-around;
+}
+
+.box1 {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+#team1,
+#team2 {
+  width: 95px;
+}
+
+/* Dropdown Label Styling */
+label[for="team1"],
+label[for="team2"],
+label[for="team1-score"],
+label[for="team2-score"] {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 8px;
+  transition: color 0.3s ease;
+  display: inline-block;
+  position: relative;
+  padding-left: 20px;
+}
+
+/* Adding an Icon before label */
+label[for="team1"]:before,
+label[for="team2"]:before,
+label[for="team1-score"]:before,
+label[for="team2-score"]:before {
+  content: "🎯";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 18px;
+  transition: transform 0.3s ease;
+}
+
+/* Hover effect for labels */
+label[for="team1"]:hover,
+label[for="team2"]:hover,
+label[for="team1-score"]:hover,
+label[for="team2-score"]:hover {
+  color: #007bff;
+  transform: scale(1.1);
+}
+
+/* Button Styling */
 button {
   margin-top: 10px;
   padding: 8px 12px;
@@ -50,12 +127,29 @@ button {
   border: none;
   border-radius: 3px;
   cursor: pointer;
+  transition: background-color 0.3s ease;
 }
 
 button:hover {
   background-color: #0056b3;
 }
 
+/* Delete Button Styling */
+.delete-button {
+  padding: 5px 10px;
+  background-color: red;
+  color: white;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.delete-button:hover {
+  background-color: darkred;
+}
+
+/* League Table Styling */
 #league-table {
   margin: 20px auto;
   width: 90%;
@@ -88,9 +182,35 @@ button:hover {
   background-color: #f1f1f1;
 }
 
+/* Add animation for adding/deleting rows */
+.row-animation {
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* Last rank styling */
+#league-table tbody tr:last-child {
+  color: red;
+}
+
+/* Negative Goal Difference or Goals Against */
+#league-table tbody tr td:nth-child(8),
+#league-table tbody tr td:nth-child(7) {
+  color: red;
+}
+
 /* Responsive styles for tablets */
 @media (max-width: 650px) {
-  #input-section input {
+  #input-section input,
+  select {
     width: calc(100% - 20px);
     margin: 5px 0;
   }
