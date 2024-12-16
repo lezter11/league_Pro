@@ -3,6 +3,9 @@ body {
   text-align: center;
   padding: 20px;
   background-color: #f4f4f9;
+  background-image: url(https://images5.alphacoders.com/571/thumb-1920-571559.jpg);
+  background-size: cover;
+  background-repeat: no-repeat;
 }
 
 h1 {

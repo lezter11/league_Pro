@@ -84,3 +84,37 @@ function renderTable() {
     tbody.appendChild(row);
   }
 }
+
+function setupAudio() {
+  const audio = document.getElementById("background-audio");
+  const muteButton = document.getElementById("mute-button");
+
+  audio.currentTime = 0; // Start from the beginning
+  console.log("Audio Playing");
+  //audio.play(); // Play audio
+  console.log("Audio Stopped");
+
+  // Set default volume and loop audio
+  audio.volume = 0.5;
+  audio.loop = true;
+
+  // Add event listener for mute/unmute
+  muteButton.addEventListener("click", () => {
+    if (audio.muted) {
+      audio.muted = false;
+      muteButton.textContent = "Mute";
+    } else {
+      audio.muted = true;
+      muteButton.textContent = "Unmute";
+    }
+  });
+}
+
+// Initialize the page
+function init() {
+  renderTable();
+  setupAudio();
+}
+
+// Run the init function when the page loads
+document.addEventListener("DOMContentLoaded", init);
