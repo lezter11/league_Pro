@@ -1,3 +1,11 @@
+/* Ensure the html and body elements take up the full height */
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
 /* Base styles */
 body {
   font-family: Arial, sans-serif;
@@ -5,9 +13,10 @@ body {
   padding: 20px;
   background-color: #f4f4f9;
   background-image: url(https://images5.alphacoders.com/571/thumb-1920-571559.jpg);
-  background-size: cover;
+  background-size: cover; /* Ensure the image covers the entire background */
+  background-position: center; /* Center the image */
   background-repeat: no-repeat;
-  margin: 0;
+  height: 100%; /* Full height */
 }
 
 h1 {
@@ -80,7 +89,7 @@ button:hover {
 }
 
 /* Responsive styles for tablets */
-@media (max-width: 768px) {
+@media (max-width: 650px) {
   #input-section input {
     width: calc(100% - 20px);
     margin: 5px 0;
