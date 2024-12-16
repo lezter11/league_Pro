@@ -1,0 +1,50 @@
+body {
+  font-family: Arial, sans-serif;
+  text-align: center;
+  padding: 20px;
+  background-color: #f4f4f9;
+}
+
+h1 {
+  color: #333;
+}
+
+#input-section {
+  margin: 20px auto;
+  padding: 10px;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  display: inline-block;
+}
+
+#input-section input {
+  margin: 5px;
+}
+
+#league-table {
+  margin: 20px auto;
+  width: 80%;
+  border-collapse: collapse;
+  background: #fff;
+}
+
+#league-table th,
+#league-table td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: center;
+}
+
+#league-table th {
+  background-color: #007bff;
+  color: white;
+}
+
+#league-table tbody tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+#league-table tbody tr:hover {
+  background-color: #f1f1f1;
+}

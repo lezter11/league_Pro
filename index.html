@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>League Table</title>
+    <link rel="stylesheet" href="index.css" />
+  </head>
+  <body>
+    <h1>League Table</h1>
+    <div id="input-section">
+      <label for="team1">Team 1:</label>
+      <input type="text" id="team1" placeholder="Team 1 Name" />
+      <label for="team1-score">Score:</label>
+      <input type="number" id="team1-score" placeholder="0" />
+
+      <label for="team2">Team 2:</label>
+      <input type="text" id="team2" placeholder="Team 2 Name" />
+      <label for="team2-score">Score:</label>
+      <input type="number" id="team2-score" placeholder="0" />
+
+      <button onclick="addMatch()">Add Match</button>
+    </div>
+
+    <table id="league-table">
+      <thead>
+        <tr>
+          <th>Team</th>
+          <th>Played</th>
+          <th>Won</th>
+          <th>Drawn</th>
+          <th>Lost</th>
+          <th>Goals For</th>
+          <th>Goals Against</th>
+          <th>Goal Difference</th>
+          <th>Points</th>
+        </tr>
+      </thead>
+      <tbody id="table-body">
+        <!-- Dynamic rows will be inserted here -->
+      </tbody>
+    </table>
+
+    <script src="league.js"></script>
+  </body>
+</html>
