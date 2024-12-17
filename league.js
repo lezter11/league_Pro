@@ -59,6 +59,8 @@ async function addMatch() {
   }
 }
 
+window.addMatch = addMatch;
+
 // Fetch Data from Firestore
 async function fetchData() {
   const querySnapshot = await getDocs(collection(db, "matches"));
