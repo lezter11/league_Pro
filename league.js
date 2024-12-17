@@ -27,6 +27,7 @@ const db = getFirestore(app);
 const tableData = {};
 
 // Add Match Function
+// Add Match Function
 async function addMatch() {
   const team1 = document.getElementById("team1").value.trim().toLowerCase();
   const team2 = document.getElementById("team2").value.trim().toLowerCase();
@@ -44,22 +45,21 @@ async function addMatch() {
   }
 
   try {
-    // Save match data to Firestore
-    await addDoc(collection(db, "matches"), {
+    console.log("Adding match...");
+    // Here you can save match data to Firestore
+    console.log({
       team1,
       team2,
       team1Score,
       team2Score,
     });
-
-    console.log("Match added to Firestore");
-    fetchData(); // Refresh table after adding
+    fetchData();
   } catch (error) {
     console.error("Error adding match:", error);
   }
 }
 
-window.addMatch = addMatch;
+window.addMatch = addMatch; // Explicitly attach to global window object
 
 // Fetch Data from Firestore
 async function fetchData() {
