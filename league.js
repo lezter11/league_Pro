@@ -1,5 +1,5 @@
 // Firebase Configuration
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
 import {
   getFirestore,
   collection,
@@ -7,7 +7,7 @@ import {
   getDocs,
   deleteDoc,
   doc,
-} from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
+} from "https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js";
 
 // Your Firebase Config (Replace with your project details)
 const firebaseConfig = {
@@ -24,11 +24,10 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 // Local Data Store
-const tableData = {};
+let tableData = {}; // Changed from const to let
 
 // Add Match Function
-// Add Match Function
-async function addMatch() {
+export async function addMatch() {
   const team1 = document.getElementById("team1").value.trim().toLowerCase();
   const team2 = document.getElementById("team2").value.trim().toLowerCase();
   const team1Score = parseInt(document.getElementById("team1-score").value);
@@ -45,21 +44,21 @@ async function addMatch() {
   }
 
   try {
-    console.log("Adding match...");
-    // Here you can save match data to Firestore
-    console.log({
+    // Save match to Firestore
+    const docRef = await addDoc(collection(db, "matches"), {
       team1,
       team2,
       team1Score,
       team2Score,
     });
-    fetchData();
+    console.log("Match added with ID: ", docRef.id);
+    
+    // Refresh data after adding match
+    await fetchData();
   } catch (error) {
     console.error("Error adding match:", error);
   }
 }
-
-window.addMatch = addMatch; // Explicitly attach to global window object
 
 // Fetch Data from Firestore
 async function fetchData() {
@@ -173,9 +172,12 @@ function setupAudio() {
 }
 
 // Initialize App
-function init() {
-  fetchData(); // Fetch initial data
+async function init() {
+  await fetchData(); // Fetch initial data
   setupAudio(); // Setup audio
 }
 
 document.addEventListener("DOMContentLoaded", init);
+
+// Expose addMatch to global window object
+window.addMatch = addMatch;
