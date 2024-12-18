@@ -1,6 +1,30 @@
-const tableData = {};
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
+import {
+  getDatabase,
+  ref,
+  push,
+  onValue,
+} from "https://www.gstatic.com/firebasejs/9.22.1/firebase-database.js";
 
-function addMatch() {
+// Firebase Configuration
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_AUTH_DOMAIN",
+  databaseURL: "https://league-pro-87d49-default-rtdb.firebaseio.com/",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_STORAGE_BUCKET",
+  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+  appId: "YOUR_APP_ID",
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+let tableData = {};
+
+// Add Match Function
+async function addMatch() {
   const team1 = document.getElementById("team1").value.trim().toLowerCase();
   const team2 = document.getElementById("team2").value.trim().toLowerCase();
   const team1Score = parseInt(document.getElementById("team1-score").value);
@@ -11,28 +35,49 @@ function addMatch() {
     return;
   }
 
-  // Condition for same teams
   if (team1 === team2) {
     alert("Please select different teams.");
     return;
   }
 
-  // Update stats for both teams
-  updateTeamStats(team1, team1Score, team2Score);
-  updateTeamStats(team2, team2Score, team1Score);
+  try {
+    const matchData = {
+      team1,
+      team2,
+      team1Score,
+      team2Score,
+      timestamp: new Date().toISOString(),
+    };
 
-  // Render the updated table with animation
-  renderTable();
+    await push(ref(db, "matches"), matchData);
+    console.log("Match added to Realtime Database");
 
-  // Clear input fields with a slight delay to show animations
-  setTimeout(() => {
-    document.getElementById("team1").value = "";
-    document.getElementById("team2").value = "";
-    document.getElementById("team1-score").value = "";
-    document.getElementById("team2-score").value = "";
-  }, 500);
+    document.getElementById("team1-score").value = "0";
+    document.getElementById("team2-score").value = "0";
+  } catch (error) {
+    console.error("Error adding match: ", error);
+    alert("Failed to add match. Please try again.");
+  }
 }
 
+// Fetch and Render Matches
+function fetchAndRenderMatches() {
+  const matchesRef = ref(db, "matches");
+
+  onValue(matchesRef, (snapshot) => {
+    tableData = {};
+
+    snapshot.forEach((childSnapshot) => {
+      const match = childSnapshot.val();
+      updateTeamStats(match.team1, match.team1Score, match.team2Score);
+      updateTeamStats(match.team2, match.team2Score, match.team1Score);
+    });
+
+    renderTable();
+  });
+}
+
+// Update Team Stats
 function updateTeamStats(team, goalsFor, goalsAgainst) {
   if (!tableData[team]) {
     tableData[team] = {
@@ -62,6 +107,7 @@ function updateTeamStats(team, goalsFor, goalsAgainst) {
   }
 }
 
+// Render Table
 function renderTable() {
   const tbody = document.getElementById("table-body");
   tbody.innerHTML = "";
@@ -73,16 +119,10 @@ function renderTable() {
     return tableData[b].points - tableData[a].points;
   });
 
-  let lastRank = sortedTeams.length - 1;
-
-  for (const [index, team] of sortedTeams.entries()) {
+  sortedTeams.forEach((team) => {
     const stats = tableData[team];
     const row = document.createElement("tr");
-
     const goalDifference = stats.goalsFor - stats.goalsAgainst;
-    const goalsAgainstColor =
-      stats.goalsAgainst < 0 ? 'style="color: red;"' : "";
-    const goalDifferenceColor = goalDifference < 0 ? 'style="color: red;"' : "";
 
     row.innerHTML = `
       <td>${team}</td>
@@ -90,44 +130,26 @@ function renderTable() {
       <td>${stats.won}</td>
       <td>${stats.drawn}</td>
       <td>${stats.lost}</td>
-      <td ${goalsAgainstColor}>${stats.goalsFor}</td>
-      <td ${goalsAgainstColor}>${stats.goalsAgainst}</td>
-      <td ${goalDifferenceColor}>${goalDifference}</td>
+      <td>${stats.goalsFor}</td>
+      <td>${stats.goalsAgainst}</td>
+      <td>${goalDifference}</td>
       <td>${stats.points}</td>
-      <td><button class="delete-button" onclick="deleteMatch('${team}')">Delete</button></td>
     `;
-
-    // Add red color to the last ranked team
-    if (index === lastRank) {
-      row.style.backgroundColor = "red";
-    }
-
-    // Add animation class for table rows
-    row.classList.add("row-animation");
-
     tbody.appendChild(row);
-  }
+  });
+
+  console.log("Table rendered");
 }
 
-function deleteMatch(team) {
-  delete tableData[team];
-  renderTable();
-}
-
+// Audio Setup Function
 function setupAudio() {
   const audio = document.getElementById("background-audio");
   const muteButton = document.getElementById("mute-button");
 
-  audio.currentTime = 0; // Start from the beginning
-  console.log("Audio Playing");
-  //audio.play(); // Play audio
-  console.log("Audio Stopped");
-
-  // Set default volume and loop audio
+  audio.currentTime = 0;
   audio.volume = 0.3;
   audio.loop = true;
 
-  // Add event listener for mute/unmute
   muteButton.addEventListener("click", () => {
     if (audio.muted) {
       audio.muted = false;
@@ -139,11 +161,12 @@ function setupAudio() {
   });
 }
 
-// Initialize the page
+// Initialize the App
 function init() {
-  renderTable();
+  fetchAndRenderMatches();
   setupAudio();
 }
 
-// Run the init function when the page loads
+window.addMatch = addMatch;
+
 document.addEventListener("DOMContentLoaded", init);
