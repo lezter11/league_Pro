@@ -10,7 +10,6 @@
     <h1>League Table</h1>
     <div id="input-section">
       <div class="box">
-        <!-- Dropdown for Team 1 -->
         <div class="box1">
           <div class="team">
             <label for="team1">Team 1:</label>
@@ -20,9 +19,7 @@
               <option value="Lezter">Lezter</option>
             </select>
           </div>
-
           <div class="team">
-            <!-- Dropdown for Team 1 Score -->
             <label for="team1-score">Score:</label>
             <select id="team1-score">
               <option value="0">0</option>
@@ -39,20 +36,16 @@
             </select>
           </div>
         </div>
-
-        <!-- Dropdown for Team 2 -->
         <div class="box1">
           <div class="team">
             <label for="team2">Team 2:</label>
             <select id="team2">
-              <option value="Kumar">Kumar</option>
-              <option value="Jassi">Jassi</option>
               <option value="Lezter">Lezter</option>
+              <option value="Jassi">Jassi</option>
+              <option value="Kumar">Kumar</option>
             </select>
           </div>
-
           <div class="team">
-            <!-- Dropdown for Team 2 Score -->
             <label for="team2-score">Score:</label>
             <select id="team2-score">
               <option value="0">0</option>
@@ -70,13 +63,12 @@
           </div>
         </div>
       </div>
-
-      <!-- Add Match Button -->
       <button onclick="addMatch()">Add Match</button>
+      <button onclick="undo()">Undo Last Entry</button>
+      <button onclick="clearAll()">Clear All Matches</button>
     </div>
 
     <button id="mute-button">Mute</button>
-
     <audio id="background-audio" autoplay>
       <source src="champions.mp3" type="audio/mpeg" />
       Your browser does not support the audio element.
@@ -96,9 +88,7 @@
           <th>Points</th>
         </tr>
       </thead>
-      <tbody id="table-body">
-        <!-- Dynamic rows will be inserted here -->
-      </tbody>
+      <tbody id="table-body"></tbody>
     </table>
 
     <script type="module" src="league.js"></script>

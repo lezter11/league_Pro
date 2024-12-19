@@ -4,9 +4,10 @@ import {
   ref,
   push,
   onValue,
+  remove,
 } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-database.js";
 
-// Firebase Configuration
+// Firebase Configuration (REPLACE WITH YOUR CREDENTIALS)
 const firebaseConfig = {
   apiKey: "YOUR_API_KEY",
   authDomain: "YOUR_AUTH_DOMAIN",
@@ -17,13 +18,22 @@ const firebaseConfig = {
   appId: "YOUR_APP_ID",
 };
 
-// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
 let tableData = {};
+tableData.previousData = null;
 
-// Add Match Function
+// async function addMatch() {
+//   // ... (Existing addMatch code)
+//   try {
+//     tableData.previousData = JSON.parse(JSON.stringify(tableData));
+//     // ... (Rest of addMatch code)
+//   } catch (error) {
+//     // ...
+//   }
+// }
+
 async function addMatch() {
   const team1 = document.getElementById("team1").value.trim().toLowerCase();
   const team2 = document.getElementById("team2").value.trim().toLowerCase();
@@ -41,6 +51,9 @@ async function addMatch() {
   }
 
   try {
+    // Store previous data *before* making changes
+    tableData.previousData = JSON.parse(JSON.stringify(tableData));
+
     const matchData = {
       team1,
       team2,
@@ -60,24 +73,13 @@ async function addMatch() {
   }
 }
 
-// Fetch and Render Matches
-function fetchAndRenderMatches() {
-  const matchesRef = ref(db, "matches");
-
-  onValue(matchesRef, (snapshot) => {
-    tableData = {};
-
-    snapshot.forEach((childSnapshot) => {
-      const match = childSnapshot.val();
-      updateTeamStats(match.team1, match.team1Score, match.team2Score);
-      updateTeamStats(match.team2, match.team2Score, match.team1Score);
-    });
-
-    renderTable();
-  });
+function updateTeamStatsFromTableData() {
+  for (const team in tableData) {
+    const stats = tableData[team];
+    updateTeamStats(team, stats.goalsFor, stats.goalsAgainst);
+  }
 }
 
-// Update Team Stats
 function updateTeamStats(team, goalsFor, goalsAgainst) {
   if (!tableData[team]) {
     tableData[team] = {
@@ -107,34 +109,77 @@ function updateTeamStats(team, goalsFor, goalsAgainst) {
   }
 }
 
+function undo() {
+  if (tableData.previousData) {
+    tableData = JSON.parse(JSON.stringify(tableData.previousData)); // Deep copy to avoid reference issues
+    tableData.previousData = null;
+    renderTable();
+    console.log("Last entry undone!");
+  } else {
+    alert("No previous entry to undo.");
+  }
+}
+
+async function clearAll() {
+  if (
+    confirm(
+      "Are you sure you want to clear all matches? This action cannot be undone."
+    )
+  ) {
+    try {
+      const matchesRef = ref(db, "matches");
+      await remove(matchesRef);
+      tableData = {}; // Reset tableData
+      tableData.previousData = null;
+      renderTable();
+      console.log("All matches cleared from Realtime Database");
+    } catch (error) {
+      console.error("Error clearing matches:", error);
+      alert("Failed to clear matches. Please try again.");
+    }
+  }
+}
+
 // Render Table
 function renderTable() {
   const tbody = document.getElementById("table-body");
   tbody.innerHTML = "";
 
-  const sortedTeams = Object.keys(tableData).sort((a, b) => {
-    if (tableData[b].points === tableData[a].points) {
-      return tableData[b].goalsFor - tableData[a].goalsFor;
-    }
-    return tableData[b].points - tableData[a].points;
+  // 1. Filter out non-team entries and create a copy for sorting
+  const teamEntries = Object.entries(tableData).filter(([key, value]) => {
+    return (
+      typeof value === "object" &&
+      value !== null &&
+      value.hasOwnProperty("points")
+    );
   });
 
-  sortedTeams.forEach((team) => {
-    const stats = tableData[team];
+  // 2. Sort the filtered team entries
+  const sortedTeams = teamEntries.sort(([, teamA], [, teamB]) => {
+    const pointsA = teamA.points ?? 0; // Nullish coalescing operator
+    const pointsB = teamB.points ?? 0;
+    if (pointsB === pointsA) {
+      return (teamB.goalsFor ?? 0) - (teamA.goalsFor ?? 0); // Safe access for goalsFor as well
+    }
+    return pointsB - pointsA;
+  });
+
+  // 3. Render the sorted teams
+  sortedTeams.forEach(([team, stats]) => {
+    const goalDifference = (stats.goalsFor ?? 0) - (stats.goalsAgainst ?? 0); // Safe access
     const row = document.createElement("tr");
-    const goalDifference = stats.goalsFor - stats.goalsAgainst;
 
     row.innerHTML = `
-      <td>${team}</td>
-      <td>${stats.played}</td>
-      <td>${stats.won}</td>
-      <td>${stats.drawn}</td>
-      <td>${stats.lost}</td>
-      <td>${stats.goalsFor}</td>
-      <td>${stats.goalsAgainst}</td>
-      <td>${goalDifference}</td>
-      <td>${stats.points}</td>
-    `;
+          <td>${team}</td>
+          <td>${stats.played ?? 0}</td>
+          <td>${stats.won ?? 0}</td>
+          <td>${stats.drawn ?? 0}</td>
+          <td>${stats.lost ?? 0}</td>
+          <td>${stats.goalsFor ?? 0}</td>
+          <td>${stats.goalsAgainst ?? 0}</td>
+          <td>${goalDifference}</td>
+          <td>${stats.points ?? 0}</td>
+      `;
     tbody.appendChild(row);
   });
 
@@ -162,11 +207,28 @@ function setupAudio() {
 }
 
 // Initialize the App
+function fetchAndRenderMatches() {
+  const matchesRef = ref(db, "matches");
+
+  onValue(matchesRef, (snapshot) => {
+    tableData = {};
+    tableData.previousData = null; // Important: Reset previous data on new data fetch
+    snapshot.forEach((childSnapshot) => {
+      const match = childSnapshot.val();
+      updateTeamStats(match.team1, match.team1Score, match.team2Score);
+      updateTeamStats(match.team2, match.team2Score, match.team1Score);
+    });
+    renderTable();
+  });
+}
+
 function init() {
   fetchAndRenderMatches();
   setupAudio();
 }
 
 window.addMatch = addMatch;
+window.undo = undo;
+window.clearAll = clearAll;
 
 document.addEventListener("DOMContentLoaded", init);
