@@ -4,8 +4,10 @@ import {
   ref,
   push,
   onValue,
+  get,
   remove,
 } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-database.js";
+import { getStorage, ref as storageRef, uploadString } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-storage.js";
 
 // Firebase Configuration (REPLACE WITH YOUR CREDENTIALS)
 const firebaseConfig = {
@@ -186,6 +188,38 @@ function renderTable() {
   console.log("Table rendered");
 }
 
+// Export Current Season Data
+async function exportCurrentSeasonData() {
+  const matchesRef = ref(db, "matches");
+  const snapshot = await get(matchesRef);
+  const data = snapshot.val();
+
+  if (data) {
+    const jsonData = JSON.stringify(data);
+    const storage = getStorage(app);
+    const fileRef = storageRef(storage, `seasons/${new Date().toISOString()}_season.json`);
+    await uploadString(fileRef, jsonData);
+    console.log("Current season data exported successfully");
+  } else {
+    console.log("No match data found to export");
+  }
+}
+
+// Clear Current Season Data
+async function clearCurrentSeasonData() {
+  const matchesRef = ref(db, "matches");
+  await remove(matchesRef);
+  console.log("Current season data cleared successfully");
+}
+
+// Start New Season
+async function startNewSeason() {
+  await exportCurrentSeasonData();
+  await clearCurrentSeasonData();
+  fetchAndRenderMatches(); // Refresh the table to reflect the new season
+  console.log("New season started");
+}
+
 // Audio Setup Function
 function setupAudio() {
   const audio = document.getElementById("background-audio");
@@ -228,6 +262,7 @@ function init() {
 }
 
 window.addMatch = addMatch;
+window.startNewSeason = startNewSeason;
 window.undo = undo;
 window.clearAll = clearAll;
 
