@@ -68,24 +68,38 @@
       <button onclick="clearAll()">Clear All Matches</button>
     </div>
 
-    <button id="mute-button">Mute</button>
-    <audio id="background-audio" autoplay>
-      <source src="champions.mp3" type="audio/mpeg" />
-      Your browser does not support the audio element.
-    </audio>
+    <!-- Match History Section -->
+    <div id="match-history">
+      <h2>Match History</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Team 1</th>
+            <th>Score</th>
+            <th>Team 2</th>
+            <th>Score</th>
+          </tr>
+        </thead>
+        <tbody id="match-history-body"></tbody>
+      </table>
+    </div>
+    <button id="match-history-btn">Match History</button>
 
+    <!-- League Table Section -->
     <table id="league-table">
       <thead>
         <tr>
-          <th>Team</th>
+          <th>Position</th>
+          <th>Club</th>
           <th>Played</th>
           <th>Won</th>
           <th>Drawn</th>
           <th>Lost</th>
-          <th>Goals For</th>
-          <th>Goals Against</th>
-          <th>Goal Difference</th>
+          <th>GF</th>
+          <th>GA</th>
+          <th>GD</th>
           <th>Points</th>
+          <th>Form</th>
         </tr>
       </thead>
       <tbody id="table-body"></tbody>

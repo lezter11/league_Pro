@@ -13,10 +13,10 @@ body {
   padding: 20px;
   background-color: #f4f4f9;
   background-image: url(https://images5.alphacoders.com/571/thumb-1920-571559.jpg);
-  background-size: cover; /* Ensure the image covers the entire background */
-  background-position: center; /* Center the image */
+  background-size: cover;
+  background-position: center;
   background-repeat: no-repeat;
-  height: 100%; /* Full height */
+  height: 100%;
 }
 
 h1 {
@@ -95,20 +95,6 @@ label[for="team2-score"] {
   padding-left: 20px;
 }
 
-/* Adding an Icon before label */
-label[for="team1"]:before,
-label[for="team2"]:before,
-label[for="team1-score"]:before,
-label[for="team2-score"]:before {
-  content: "🎯";
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 18px;
-  transition: transform 0.3s ease;
-}
-
 /* Hover effect for labels */
 label[for="team1"]:hover,
 label[for="team2"]:hover,
@@ -121,41 +107,29 @@ label[for="team2-score"]:hover {
 /* Button Styling */
 button {
   margin-top: 10px;
-  padding: 8px 12px;
-  background-color: #007bff;
-  color: white;
+  padding: 10px 15px;
+  background: linear-gradient(45deg, #6a11cb, #2575fc);
   border: none;
-  border-radius: 3px;
+  color: white;
+  border-radius: 25px;
   cursor: pointer;
-  transition: background-color 0.3s ease;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
 }
 
 button:hover {
-  background-color: #0056b3;
-}
-
-/* Delete Button Styling */
-.delete-button {
-  padding: 5px 10px;
-  background-color: red;
-  color: white;
-  border: none;
-  border-radius: 3px;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-}
-
-.delete-button:hover {
-  background-color: darkred;
+  transform: scale(1.05);
+  box-shadow: 0 6px 10px rgba(0, 0, 0, 0.3);
 }
 
 /* League Table Styling */
 #league-table {
   margin: 20px auto;
   width: 90%;
-  max-width: 800px;
+  max-width: 900px;
   border-collapse: collapse;
   background: #fff;
+  text-align: left;
   overflow-x: auto;
   box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
 }
@@ -163,15 +137,15 @@ button:hover {
 #league-table th,
 #league-table td {
   border: 1px solid #ddd;
-  padding: 8px;
-  text-align: center;
+  padding: 10px;
   font-size: 14px;
+  vertical-align: middle;
 }
 
 #league-table th {
   background-color: #007bff;
   color: white;
-  font-size: 16px;
+  text-transform: uppercase;
 }
 
 #league-table tbody tr:nth-child(even) {
@@ -179,75 +153,95 @@ button:hover {
 }
 
 #league-table tbody tr:hover {
-  background-color: #f1f1f1;
+  background-color: #e1f0ff;
 }
 
-/* Add animation for adding/deleting rows */
-.row-animation {
-  animation: fadeIn 0.5s ease-in-out;
+/* Position Column */
+#league-table td:first-child {
+  font-weight: bold;
+  text-align: center;
 }
 
-@keyframes fadeIn {
-  0% {
-    opacity: 0;
-  }
-  100% {
-    opacity: 1;
-  }
+/* Club Column with Images */
+#league-table td.club {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-/* Last rank styling */
-#league-table tbody tr:last-child {
-  color: red;
+#league-table td.club img {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
 }
 
-/* Negative Goal Difference or Goals Against */
-#league-table tbody tr td:nth-child(8),
-#league-table tbody tr td:nth-child(7) {
-  color: red;
+/* Form Indicators */
+.form-circle {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  display: inline-block;
+  margin: 0 2px;
 }
 
-/* Responsive styles for tablets */
-@media (max-width: 650px) {
-  #input-section input,
-  select {
-    width: calc(100% - 20px);
-    margin: 5px 0;
+.form-win {
+  background-color: green;
+}
+
+.form-draw {
+  background-color: gray;
+}
+
+.form-loss {
+  background-color: red;
+}
+
+/* Match History Section */
+#match-history {
+  margin-top: 20px;
+  display: none;
+  background: #fff;
+  border-radius: 10px;
+  padding: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+#match-history table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+#match-history th,
+#match-history td {
+  border: 1px solid #ddd;
+  padding: 10px;
+  text-align: center;
+  font-size: 14px;
+}
+
+#match-history th {
+  background-color: #007bff;
+  color: white;
+}
+
+.match-score {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px;
+  border-bottom: 1px solid #ddd;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+  #league-table th,
+  #league-table td {
+    font-size: 12px;
   }
 
   button {
-    padding: 10px 15px;
-    font-size: 14px;
-  }
-
-  #league-table th,
-  #league-table td {
     font-size: 12px;
-  }
-}
-
-/* Responsive styles for mobile devices */
-@media (max-width: 480px) {
-  body {
-    padding: 10px;
-  }
-
-  h1 {
-    font-size: 20px;
-  }
-
-  #input-section {
-    padding: 10px;
-    width: 100%;
-  }
-
-  #league-table th,
-  #league-table td {
-    font-size: 10px;
-    padding: 5px;
-  }
-
-  #league-table {
-    font-size: 12px;
+    padding: 8px 12px;
   }
 }
