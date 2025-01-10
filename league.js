@@ -216,9 +216,6 @@ function fetchAndRenderMatches() {
     snapshot.forEach((childSnapshot) => {
       const match = childSnapshot.val();
       matches.push(match); // Add match to match history array
-      if (!tableData[match.team1]) updateTeamStats(match.team1, 0, 0);
-      if (!tableData[match.team2]) updateTeamStats(match.team2, 0, 0);
-
       updateTeamStats(match.team1, match.team1Score, match.team2Score);
       updateTeamStats(match.team2, match.team2Score, match.team1Score);
     });
