@@ -5,6 +5,7 @@ import {
   push,
   onValue,
   remove,
+  set,
 } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-database.js";
 
 // Firebase Configuration (REPLACE WITH YOUR CREDENTIALS)
@@ -22,10 +23,169 @@ const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
 let tableData = {};
-let lastEntryKey = null; // To track the last added match for the undo functionality
+let lastEntryKey = null;
+let currentLeague = null;
 
-// Add Match to the Firebase Database
+function loadLeagues() {
+  const leagueSelector = document.getElementById("league-selector");
+  leagueSelector.innerHTML = '<option value="">Select a League</option>';
+
+  onValue(ref(db, "leagues"), (snapshot) => {
+    let activeLeague = null;
+
+    snapshot.forEach((childSnapshot) => {
+      const league = childSnapshot.key;
+      const isActive = childSnapshot.child("active").val();
+
+      const option = document.createElement("option");
+      option.value = league;
+      option.textContent = league;
+      leagueSelector.appendChild(option);
+
+      if (isActive) {
+        activeLeague = league; // Set the currently active league
+      }
+    });
+
+    if (activeLeague) {
+      currentLeague = activeLeague;
+      leagueSelector.value = activeLeague;
+      fetchAndRenderMatches();
+    }
+  });
+}
+
+// Update when league is selected manually
+document
+  .getElementById("league-selector")
+  .addEventListener("change", function () {
+    currentLeague = this.value;
+    fetchAndRenderMatches();
+  });
+
+function createNewLeague() {
+  const leagueName = prompt("Enter new league name:");
+  if (leagueName) {
+    set(ref(db, `leagues/${leagueName}`), { active: true });
+    currentLeague = leagueName;
+    loadLeagues();
+  }
+}
+
+async function endLeague() {
+  if (!currentLeague) {
+    alert("No league selected");
+    return;
+  }
+
+  let winningTeam = null;
+  let maxPoints = -1;
+
+  for (const team in tableData) {
+    if (tableData[team].points > maxPoints) {
+      maxPoints = tableData[team].points;
+      winningTeam = team;
+    }
+  }
+
+  if (winningTeam) {
+    await set(ref(db, `leagues/${currentLeague}/winner`), winningTeam);
+  }
+
+  await set(ref(db, `leagues/${currentLeague}/active`), false);
+  currentLeague = null;
+  loadLeaderboard();
+}
+
+function loadLeaderboard() {
+  const leaderboardList = document.getElementById("leaderboard-list");
+  leaderboardList.innerHTML = "";
+
+  onValue(ref(db, "leagues"), (snapshot) => {
+    leaderboardList.innerHTML = "";
+
+    snapshot.forEach((childSnapshot) => {
+      const leagueName = childSnapshot.key;
+      const winner = childSnapshot.child("winner").val();
+      if (winner) {
+        const listItem = document.createElement("li");
+        listItem.textContent = `${leagueName}: ${winner}`;
+        leaderboardList.appendChild(listItem);
+      }
+    });
+  });
+}
+
+async function deleteLeague() {
+  if (!currentLeague) {
+    alert("No league selected.");
+    return;
+  }
+
+  if (confirm(`Are you sure you want to delete league: ${currentLeague}?`)) {
+    if (
+      confirm(
+        "This will permanently remove the league and all its data. Proceed?"
+      )
+    ) {
+      try {
+        await remove(ref(db, `leagues/${currentLeague}`));
+        loadLeagues();
+        currentLeague = null;
+        alert("League deleted successfully.");
+      } catch (error) {
+        console.error("Error deleting league:", error);
+        alert("Failed to delete league. Please try again.");
+      }
+    }
+  }
+}
+
+async function clearAll() {
+  if (!currentLeague) {
+    alert("No league selected.");
+    return;
+  }
+
+  if (
+    !confirm(
+      `Are you sure you want to clear all matches for league: ${currentLeague}?`
+    )
+  ) {
+    return;
+  }
+
+  if (!confirm("This action is irreversible. Do you still want to proceed?")) {
+    return;
+  }
+
+  try {
+    const matchesRef = ref(db, `leagues/${currentLeague}/matches`);
+    await remove(matchesRef);
+    tableData = {};
+    lastEntryKey = null;
+    renderTable();
+    console.log(`All matches cleared for league: ${currentLeague}`);
+  } catch (error) {
+    console.error("Error clearing matches:", error);
+    alert("Failed to clear matches. Please try again.");
+  }
+}
+
+// Ensure the button properly triggers clearAll()
+document.addEventListener("DOMContentLoaded", () => {
+  const clearButton = document.getElementById("clear-matches-btn");
+  if (clearButton) {
+    clearButton.addEventListener("click", clearAll);
+  }
+});
+
 async function addMatch() {
+  if (!currentLeague) {
+    alert("Select or create a league first");
+    return;
+  }
+
   const team1 = document.getElementById("team1").value.trim();
   const team2 = document.getElementById("team2").value.trim();
   const team1Score = parseInt(document.getElementById("team1-score").value);
@@ -50,11 +210,13 @@ async function addMatch() {
       timestamp: new Date().toISOString(),
     };
 
-    const newMatchRef = await push(ref(db, "matches"), matchData);
-    lastEntryKey = newMatchRef.key; // Save the key of the last added match for undo
+    const newMatchRef = await push(
+      ref(db, `leagues/${currentLeague}/matches`),
+      matchData
+    );
+    lastEntryKey = newMatchRef.key;
     console.log("Match added to Realtime Database with key:", lastEntryKey);
 
-    // Reset score inputs after successful addition
     document.getElementById("team1-score").value = "0";
     document.getElementById("team2-score").value = "0";
   } catch (error) {
@@ -63,7 +225,6 @@ async function addMatch() {
   }
 }
 
-// Undo the Last Match Entry
 async function undo() {
   if (!lastEntryKey) {
     alert("No last entry to undo.");
@@ -71,36 +232,12 @@ async function undo() {
   }
 
   try {
-    await remove(ref(db, `matches/${lastEntryKey}`));
-    console.log(
-      "Last entry removed from Realtime Database with key:",
-      lastEntryKey
-    );
-    lastEntryKey = null; // Clear the key after successful undo
+    await remove(ref(db, `leagues/${currentLeague}/matches/${lastEntryKey}`));
+    console.log("Last entry removed:", lastEntryKey);
+    lastEntryKey = null;
   } catch (error) {
-    console.error("Error undoing last entry: ", error);
+    console.error("Error undoing last entry:", error);
     alert("Failed to undo the last entry. Please try again.");
-  }
-}
-
-// Clear All Matches from Firebase and Table
-async function clearAll() {
-  if (
-    confirm(
-      "Are you sure you want to clear all matches? This action cannot be undone."
-    )
-  ) {
-    try {
-      const matchesRef = ref(db, "matches");
-      await remove(matchesRef);
-      tableData = {};
-      lastEntryKey = null; // Clear last entry key on full reset
-      renderTable();
-      console.log("All matches cleared from Realtime Database");
-    } catch (error) {
-      console.error("Error clearing matches:", error);
-      alert("Failed to clear matches. Please try again.");
-    }
   }
 }
 
@@ -207,21 +344,25 @@ function renderMatchHistory(matches) {
 
 // Fetch Matches from Firebase and Render
 function fetchAndRenderMatches() {
-  const matchesRef = ref(db, "matches");
+  if (!currentLeague) {
+    console.log("No league selected or running.");
+    return;
+  }
 
+  const matchesRef = ref(db, `leagues/${currentLeague}/matches`);
   onValue(matchesRef, (snapshot) => {
     tableData = {};
-    const matches = []; // For match history rendering
+    const matches = [];
 
     snapshot.forEach((childSnapshot) => {
       const match = childSnapshot.val();
-      matches.push(match); // Add match to match history array
+      matches.push(match);
       updateTeamStats(match.team1, match.team1Score, match.team2Score);
       updateTeamStats(match.team2, match.team2Score, match.team1Score);
     });
 
     renderTable();
-    renderMatchHistory(matches); // Render match history
+    renderMatchHistory(matches);
   });
 }
 
@@ -240,8 +381,15 @@ function init() {
   });
 }
 
-window.addMatch = addMatch;
-window.clearAll = clearAll;
-window.undo = undo; // Make undo globally accessible
+// Ensure the page loads with the currently running league
+document.addEventListener("DOMContentLoaded", () => {
+  loadLeagues();
+  loadLeaderboard();
+});
 
-document.addEventListener("DOMContentLoaded", init);
+window.createNewLeague = createNewLeague;
+window.endLeague = endLeague;
+window.deleteLeague = deleteLeague;
+window.clearAll = clearAll;
+window.addMatch = addMatch;
+window.undo = undo;

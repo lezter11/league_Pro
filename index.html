@@ -8,6 +8,25 @@
   </head>
   <body>
     <h1>League Table</h1>
+
+    <!-- League Management Section -->
+    <div id="league-management">
+      <select id="league-selector">
+        <option value="">Select a League</option>
+      </select>
+      <button onclick="createNewLeague()">Create a New League</button>
+      <button onclick="endLeague()">End League</button>
+      <button onclick="deleteLeague()" id="delete-league-btn">
+        Delete Selected League
+      </button>
+    </div>
+
+    <!-- Leaderboard Section -->
+    <div id="leaderboard">
+      <h2>League Winners</h2>
+      <ul id="leaderboard-list"></ul>
+    </div>
+
     <div id="input-section">
       <div class="box">
         <div class="box1">

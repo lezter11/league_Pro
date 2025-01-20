@@ -37,6 +37,149 @@ h1 {
   box-sizing: border-box;
 }
 
+/* League Management Section */
+#league-management {
+  margin-bottom: 20px;
+}
+
+#league-management select,
+#league-management button {
+  padding: 10px;
+  margin: 5px;
+}
+
+/* Leaderboard Styling */
+#leaderboard {
+  width: 90%;
+  max-width: 600px;
+  margin: 20px auto;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  padding: 15px;
+  text-align: center;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+#leaderboard h2 {
+  font-size: 24px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 10px;
+  color: #ffffff;
+  background: linear-gradient(90deg, #ff416c, #ff4b2b);
+  padding: 10px;
+  border-radius: 8px;
+  display: inline-block;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+}
+
+#leaderboard-list {
+  list-style: none;
+  padding: 0;
+  margin: 10px 0;
+}
+
+#leaderboard-list li {
+  background: rgba(255, 255, 255, 0.3);
+  margin: 8px 0;
+  padding: 12px;
+  font-size: 18px;
+  font-weight: bold;
+  color: #fff;
+  border-radius: 5px;
+  transition: all 0.3s ease;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 3px 5px rgba(0, 0, 0, 0.1);
+}
+
+/* Hover Effect */
+#leaderboard-list li:hover {
+  background: rgba(255, 255, 255, 0.5);
+  transform: scale(1.05);
+}
+
+/* Trophy Icon for Winners */
+#leaderboard-list li::before {
+  content: "🏆";
+  font-size: 20px;
+  margin-right: 10px;
+}
+
+/* Input Section Styling */
+#input-section {
+  margin: 20px auto;
+  padding: 10px;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  width: 90%;
+  max-width: 600px;
+  box-sizing: border-box;
+}
+
+/* Button Styling */
+button {
+  padding: 10px 15px;
+  background: #007bff;
+  border: none;
+  color: white;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+button:hover {
+  background: #0056b3;
+}
+
+/* Match History Section */
+#match-history {
+  display: none;
+  background: #fff;
+  padding: 10px;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+#match-history table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+#match-history th,
+#match-history td {
+  border: 1px solid #ddd;
+  padding: 10px;
+  text-align: center;
+}
+
+/* League Table Styling */
+#league-table {
+  width: 90%;
+  max-width: 900px;
+  border-collapse: collapse;
+  background: #fff;
+  text-align: left;
+  overflow-x: auto;
+  box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+#league-table th,
+#league-table td {
+  border: 1px solid #ddd;
+  padding: 10px;
+}
+
+#team1-score,
+#team2-score {
+  width: calc(50% - 10px);
+}
+
 /* Input and Select Field Styling */
 #input-section input,
 select {
@@ -47,7 +190,7 @@ select {
   border: 2px solid #ddd;
   outline: none;
   transition: background-color 0.3s ease, transform 0.3s ease;
-  width: calc(50% - 20px);
+  width: calc(50% - 41%);
   box-sizing: border-box;
 }
 
@@ -243,5 +386,15 @@ button:hover {
   button {
     font-size: 12px;
     padding: 8px 12px;
+  }
+
+  #leaderboard h2 {
+    font-size: 20px;
+    padding: 8px;
+  }
+
+  #leaderboard-list li {
+    font-size: 16px;
+    padding: 10px;
   }
 }
