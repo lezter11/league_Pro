@@ -412,6 +412,7 @@ function init() {
 document.addEventListener("DOMContentLoaded", () => {
   loadLeagues();
   loadLeaderboard();
+  init();
 });
 
 window.createNewLeague = createNewLeague;
