@@ -6,6 +6,7 @@ import {
   onValue,
   remove,
   set,
+  get,
 } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-database.js";
 
 // Firebase Configuration (REPLACE WITH YOUR CREDENTIALS)
@@ -28,31 +29,41 @@ let currentLeague = null;
 
 function loadLeagues() {
   const leagueSelector = document.getElementById("league-selector");
+
+  // Clear the dropdown before adding new options
   leagueSelector.innerHTML = '<option value="">Select a League</option>';
 
-  onValue(ref(db, "leagues"), (snapshot) => {
-    let activeLeague = null;
+  onValue(
+    ref(db, "leagues"),
+    (snapshot) => {
+      let activeLeague = null;
+      let addedLeagues = new Set(); // Track added leagues to prevent duplicates
 
-    snapshot.forEach((childSnapshot) => {
-      const league = childSnapshot.key;
-      const isActive = childSnapshot.child("active").val();
+      snapshot.forEach((childSnapshot) => {
+        const league = childSnapshot.key;
+        const isActive = childSnapshot.child("active").val();
 
-      const option = document.createElement("option");
-      option.value = league;
-      option.textContent = league;
-      leagueSelector.appendChild(option);
+        if (!addedLeagues.has(league)) {
+          const option = document.createElement("option");
+          option.value = league;
+          option.textContent = league;
+          leagueSelector.appendChild(option);
+          addedLeagues.add(league);
+        }
 
-      if (isActive) {
-        activeLeague = league; // Set the currently active league
+        if (isActive) {
+          activeLeague = league;
+        }
+      });
+
+      if (activeLeague) {
+        currentLeague = activeLeague;
+        leagueSelector.value = activeLeague;
+        fetchAndRenderMatches();
       }
-    });
-
-    if (activeLeague) {
-      currentLeague = activeLeague;
-      leagueSelector.value = activeLeague;
-      fetchAndRenderMatches();
-    }
-  });
+    },
+    { onlyOnce: true }
+  ); // Ensures this runs only once when fetching data
 }
 
 // Update when league is selected manually
@@ -147,6 +158,14 @@ async function clearAll() {
     return;
   }
 
+  const leagueRef = ref(db, `leagues/${currentLeague}/active`);
+  const activeSnapshot = await get(leagueRef);
+
+  if (!activeSnapshot.val()) {
+    alert("This league has ended. Matches cannot be cleared.");
+    return;
+  }
+
   if (
     !confirm(
       `Are you sure you want to clear all matches for league: ${currentLeague}?`
@@ -183,6 +202,14 @@ document.addEventListener("DOMContentLoaded", () => {
 async function addMatch() {
   if (!currentLeague) {
     alert("Select or create a league first");
+    return;
+  }
+
+  const leagueRef = ref(db, `leagues/${currentLeague}/active`);
+  const activeSnapshot = await get(leagueRef);
+
+  if (!activeSnapshot.val()) {
+    alert("This league has ended. No further matches can be added.");
     return;
   }
 
