@@ -4,10 +4,10 @@ import {
   ref,
   push,
   onValue,
-  get,
   remove,
+  set,
+  get,
 } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-database.js";
-import { getStorage, ref as storageRef, uploadString } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-storage.js";
 
 // Firebase Configuration (REPLACE WITH YOUR CREDENTIALS)
 const firebaseConfig = {
@@ -24,21 +24,205 @@ const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
 let tableData = {};
-tableData.previousData = null;
+let lastEntryKey = null;
+let currentLeague = null;
 
-// async function addMatch() {
-//   // ... (Existing addMatch code)
-//   try {
-//     tableData.previousData = JSON.parse(JSON.stringify(tableData));
-//     // ... (Rest of addMatch code)
-//   } catch (error) {
-//     // ...
-//   }
-// }
+function loadLeagues() {
+  const leagueSelector = document.getElementById("league-selector");
+
+  // Clear the dropdown before adding new options
+  leagueSelector.innerHTML = '<option value="">Select a League</option>';
+
+  onValue(
+    ref(db, "leagues"),
+    (snapshot) => {
+      let activeLeague = null;
+      let addedLeagues = new Set(); // Track added leagues to prevent duplicates
+
+      snapshot.forEach((childSnapshot) => {
+        const league = childSnapshot.key;
+        const isActive = childSnapshot.child("active").val();
+
+        if (!addedLeagues.has(league)) {
+          const option = document.createElement("option");
+          option.value = league;
+          option.textContent = league;
+          leagueSelector.appendChild(option);
+          addedLeagues.add(league);
+        }
+
+        if (isActive) {
+          activeLeague = league;
+        }
+      });
+
+      if (activeLeague) {
+        currentLeague = activeLeague;
+        leagueSelector.value = activeLeague;
+        fetchAndRenderMatches();
+      }
+    },
+    { onlyOnce: true }
+  ); // Ensures this runs only once when fetching data
+}
+
+// Update when league is selected manually
+document
+  .getElementById("league-selector")
+  .addEventListener("change", function () {
+    currentLeague = this.value;
+    fetchAndRenderMatches();
+  });
+
+function createNewLeague() {
+  const leagueName = prompt("Enter new league name:");
+  if (leagueName) {
+    set(ref(db, `leagues/${leagueName}`), { active: true });
+    currentLeague = leagueName;
+    loadLeagues();
+  }
+}
+
+async function endLeague() {
+  if (!currentLeague) {
+    alert("No league selected");
+    return;
+  }
+
+  let winningTeam = null;
+  let maxPoints = -1;
+
+  for (const team in tableData) {
+    const teamData = tableData[team];
+    if (teamData.points > maxPoints) {
+      maxPoints = teamData.points;
+      maxGoalDifference = teamData.goalsFor - teamData.goalsAgainst;
+      winningTeam = team;
+    } else if (teamData.points === maxPoints) {
+      const goalDifference = teamData.goalsFor - teamData.goalsAgainst;
+      if (goalDifference > maxGoalDifference) {
+        maxGoalDifference = goalDifference;
+        winningTeam = team;
+      }
+    }
+  }
+
+  if (winningTeam) {
+    await set(ref(db, `leagues/${currentLeague}/winner`), winningTeam);
+  }
+
+  await set(ref(db, `leagues/${currentLeague}/active`), false);
+  currentLeague = null;
+  loadLeaderboard();
+}
+
+function loadLeaderboard() {
+  const leaderboardList = document.getElementById("leaderboard-list");
+  leaderboardList.innerHTML = "";
+
+  onValue(ref(db, "leagues"), (snapshot) => {
+    leaderboardList.innerHTML = "";
+
+    snapshot.forEach((childSnapshot) => {
+      const leagueName = childSnapshot.key;
+      const winner = childSnapshot.child("winner").val();
+      if (winner) {
+        const listItem = document.createElement("li");
+        listItem.textContent = `${leagueName}: ${winner}`;
+        leaderboardList.appendChild(listItem);
+      }
+    });
+  });
+}
+
+async function deleteLeague() {
+  if (!currentLeague) {
+    alert("No league selected.");
+    return;
+  }
+
+  if (confirm(`Are you sure you want to delete league: ${currentLeague}?`)) {
+    if (
+      confirm(
+        "This will permanently remove the league and all its data. Proceed?"
+      )
+    ) {
+      try {
+        await remove(ref(db, `leagues/${currentLeague}`));
+        loadLeagues();
+        currentLeague = null;
+        alert("League deleted successfully.");
+      } catch (error) {
+        console.error("Error deleting league:", error);
+        alert("Failed to delete league. Please try again.");
+      }
+    }
+  }
+}
+
+async function clearAll() {
+  if (!currentLeague) {
+    alert("No league selected.");
+    return;
+  }
+
+  const leagueRef = ref(db, `leagues/${currentLeague}/active`);
+  const activeSnapshot = await get(leagueRef);
+
+  if (!activeSnapshot.val()) {
+    alert("This league has ended. Matches cannot be cleared.");
+    return;
+  }
+
+  if (
+    !confirm(
+      `Are you sure you want to clear all matches for league: ${currentLeague}?`
+    )
+  ) {
+    return;
+  }
+
+  if (!confirm("This action is irreversible. Do you still want to proceed?")) {
+    return;
+  }
+
+  try {
+    const matchesRef = ref(db, `leagues/${currentLeague}/matches`);
+    await remove(matchesRef);
+    tableData = {};
+    lastEntryKey = null;
+    renderTable();
+    console.log(`All matches cleared for league: ${currentLeague}`);
+  } catch (error) {
+    console.error("Error clearing matches:", error);
+    alert("Failed to clear matches. Please try again.");
+  }
+}
+
+// Ensure the button properly triggers clearAll()
+document.addEventListener("DOMContentLoaded", () => {
+  const clearButton = document.getElementById("clear-matches-btn");
+  if (clearButton) {
+    clearButton.addEventListener("click", clearAll);
+  }
+});
 
 async function addMatch() {
-  const team1 = document.getElementById("team1").value.trim().toLowerCase();
-  const team2 = document.getElementById("team2").value.trim().toLowerCase();
+  if (!currentLeague) {
+    alert("Select or create a league first");
+    return;
+  }
+
+  const leagueRef = ref(db, `leagues/${currentLeague}/active`);
+  const activeSnapshot = await get(leagueRef);
+
+  if (!activeSnapshot.val()) {
+    alert("This league has ended. No further matches can be added.");
+    return;
+  }
+
+  const team1 = document.getElementById("team1").value.trim();
+  const team2 = document.getElementById("team2").value.trim();
   const team1Score = parseInt(document.getElementById("team1-score").value);
   const team2Score = parseInt(document.getElementById("team2-score").value);
 
@@ -53,9 +237,6 @@ async function addMatch() {
   }
 
   try {
-    // Store previous data *before* making changes
-    tableData.previousData = JSON.parse(JSON.stringify(tableData));
-
     const matchData = {
       team1,
       team2,
@@ -64,8 +245,12 @@ async function addMatch() {
       timestamp: new Date().toISOString(),
     };
 
-    await push(ref(db, "matches"), matchData);
-    console.log("Match added to Realtime Database");
+    const newMatchRef = await push(
+      ref(db, `leagues/${currentLeague}/matches`),
+      matchData
+    );
+    lastEntryKey = newMatchRef.key;
+    console.log("Match added to Realtime Database with key:", lastEntryKey);
 
     document.getElementById("team1-score").value = "0";
     document.getElementById("team2-score").value = "0";
@@ -75,13 +260,23 @@ async function addMatch() {
   }
 }
 
-function updateTeamStatsFromTableData() {
-  for (const team in tableData) {
-    const stats = tableData[team];
-    updateTeamStats(team, stats.goalsFor, stats.goalsAgainst);
+async function undo() {
+  if (!lastEntryKey) {
+    alert("No last entry to undo.");
+    return;
+  }
+
+  try {
+    await remove(ref(db, `leagues/${currentLeague}/matches/${lastEntryKey}`));
+    console.log("Last entry removed:", lastEntryKey);
+    lastEntryKey = null;
+  } catch (error) {
+    console.error("Error undoing last entry:", error);
+    alert("Failed to undo the last entry. Please try again.");
   }
 }
 
+// Update Team Statistics
 function updateTeamStats(team, goalsFor, goalsAgainst) {
   if (!tableData[team]) {
     tableData[team] = {
@@ -92,6 +287,7 @@ function updateTeamStats(team, goalsFor, goalsAgainst) {
       goalsFor: 0,
       goalsAgainst: 0,
       points: 0,
+      form: [], // Array to track the last 5 matches (win, draw, loss)
     };
   }
 
@@ -103,167 +299,133 @@ function updateTeamStats(team, goalsFor, goalsAgainst) {
   if (goalsFor > goalsAgainst) {
     teamStats.won++;
     teamStats.points += 3;
+    teamStats.form.unshift("win");
   } else if (goalsFor === goalsAgainst) {
     teamStats.drawn++;
     teamStats.points += 1;
+    teamStats.form.unshift("draw");
   } else {
     teamStats.lost++;
+    teamStats.form.unshift("loss");
+  }
+
+  // Limit form history to the last 5 matches
+  if (teamStats.form.length > 5) {
+    teamStats.form.pop();
   }
 }
 
-function undo() {
-  if (tableData.previousData) {
-    tableData = JSON.parse(JSON.stringify(tableData.previousData)); // Deep copy to avoid reference issues
-    tableData.previousData = null;
-    renderTable();
-    console.log("Last entry undone!");
-  } else {
-    alert("No previous entry to undo.");
-  }
-}
-
-async function clearAll() {
-  if (
-    confirm(
-      "Are you sure you want to clear all matches? This action cannot be undone."
-    )
-  ) {
-    try {
-      const matchesRef = ref(db, "matches");
-      await remove(matchesRef);
-      tableData = {}; // Reset tableData
-      tableData.previousData = null;
-      renderTable();
-      console.log("All matches cleared from Realtime Database");
-    } catch (error) {
-      console.error("Error clearing matches:", error);
-      alert("Failed to clear matches. Please try again.");
-    }
-  }
-}
-
-// Render Table
+// Render League Table
 function renderTable() {
   const tbody = document.getElementById("table-body");
   tbody.innerHTML = "";
 
-  // 1. Filter out non-team entries and create a copy for sorting
-  const teamEntries = Object.entries(tableData).filter(([key, value]) => {
-    return (
-      typeof value === "object" &&
-      value !== null &&
-      value.hasOwnProperty("points")
-    );
-  });
+  const sortedTeams = Object.entries(tableData).sort(
+    ([, a], [, b]) => b.points - a.points
+  );
 
-  // 2. Sort the filtered team entries
-  const sortedTeams = teamEntries.sort(([, teamA], [, teamB]) => {
-    const pointsA = teamA.points ?? 0; // Nullish coalescing operator
-    const pointsB = teamB.points ?? 0;
-    if (pointsB === pointsA) {
-      return (teamB.goalsFor ?? 0) - (teamA.goalsFor ?? 0); // Safe access for goalsFor as well
-    }
-    return pointsB - pointsA;
-  });
+  sortedTeams.forEach(([team, stats], index) => {
+    const goalDifference = stats.goalsFor - stats.goalsAgainst;
+    const formHtml = stats.form
+      .map((result) => {
+        if (result === "win")
+          return '<span class="form-circle form-win"></span>';
+        if (result === "draw")
+          return '<span class="form-circle form-draw"></span>';
+        if (result === "loss")
+          return '<span class="form-circle form-loss"></span>';
+        return "";
+      })
+      .join("");
 
-  // 3. Render the sorted teams
-  sortedTeams.forEach(([team, stats]) => {
-    const goalDifference = (stats.goalsFor ?? 0) - (stats.goalsAgainst ?? 0); // Safe access
     const row = document.createElement("tr");
-
     row.innerHTML = `
-          <td>${team}</td>
-          <td>${stats.played ?? 0}</td>
-          <td>${stats.won ?? 0}</td>
-          <td>${stats.drawn ?? 0}</td>
-          <td>${stats.lost ?? 0}</td>
-          <td>${stats.goalsFor ?? 0}</td>
-          <td>${stats.goalsAgainst ?? 0}</td>
-          <td>${goalDifference}</td>
-          <td>${stats.points ?? 0}</td>
-      `;
+      <td>${index + 1}</td>
+      <td class="club"><img src="${team}.jpg" alt="${team} logo" /> ${team}</td>
+      <td>${stats.played}</td>
+      <td>${stats.won}</td>
+      <td>${stats.drawn}</td>
+      <td>${stats.lost}</td>
+      <td>${stats.goalsFor}</td>
+      <td>${stats.goalsAgainst}</td>
+      <td>${goalDifference}</td>
+      <td>${stats.points}</td>
+      <td>${formHtml}</td>
+    `;
     tbody.appendChild(row);
   });
 
   console.log("Table rendered");
 }
 
-// Export Current Season Data
-async function exportCurrentSeasonData() {
-  const matchesRef = ref(db, "matches");
-  const snapshot = await get(matchesRef);
-  const data = snapshot.val();
+// Render Match History
+function renderMatchHistory(matches) {
+  const matchHistoryBody = document.getElementById("match-history-body");
+  matchHistoryBody.innerHTML = "";
 
-  if (data) {
-    const jsonData = JSON.stringify(data);
-    const storage = getStorage(app);
-    const fileRef = storageRef(storage, `seasons/${new Date().toISOString()}_season.json`);
-    await uploadString(fileRef, jsonData);
-    console.log("Current season data exported successfully");
-  } else {
-    console.log("No match data found to export");
-  }
-}
-
-// Clear Current Season Data
-async function clearCurrentSeasonData() {
-  const matchesRef = ref(db, "matches");
-  await remove(matchesRef);
-  console.log("Current season data cleared successfully");
-}
-
-// Start New Season
-async function startNewSeason() {
-  await exportCurrentSeasonData();
-  await clearCurrentSeasonData();
-  fetchAndRenderMatches(); // Refresh the table to reflect the new season
-  console.log("New season started");
-}
-
-// Audio Setup Function
-function setupAudio() {
-  const audio = document.getElementById("background-audio");
-  const muteButton = document.getElementById("mute-button");
-
-  audio.currentTime = 0;
-  audio.volume = 0.3;
-  audio.loop = true;
-
-  muteButton.addEventListener("click", () => {
-    if (audio.muted) {
-      audio.muted = false;
-      muteButton.textContent = "Mute";
-    } else {
-      audio.muted = true;
-      muteButton.textContent = "Unmute";
-    }
+  matches.forEach((match) => {
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>${match.team1}</td>
+      <td>${match.team1Score}</td>
+      <td>${match.team2}</td>
+      <td>${match.team2Score}</td>
+    `;
+    matchHistoryBody.appendChild(row);
   });
+
+  console.log("Match history rendered.");
 }
 
-// Initialize the App
+// Fetch Matches from Firebase and Render
 function fetchAndRenderMatches() {
-  const matchesRef = ref(db, "matches");
+  if (!currentLeague) {
+    console.log("No league selected or running.");
+    return;
+  }
 
+  const matchesRef = ref(db, `leagues/${currentLeague}/matches`);
   onValue(matchesRef, (snapshot) => {
     tableData = {};
-    tableData.previousData = null; // Important: Reset previous data on new data fetch
+    const matches = [];
+
     snapshot.forEach((childSnapshot) => {
       const match = childSnapshot.val();
+      matches.push(match);
       updateTeamStats(match.team1, match.team1Score, match.team2Score);
       updateTeamStats(match.team2, match.team2Score, match.team1Score);
     });
+
     renderTable();
+    renderMatchHistory(matches);
   });
 }
 
+// Initialize Application
 function init() {
   fetchAndRenderMatches();
-  setupAudio();
+
+  const matchHistoryButton = document.getElementById("match-history-btn");
+  matchHistoryButton.addEventListener("click", () => {
+    const matchHistorySection = document.getElementById("match-history");
+    matchHistorySection.style.display =
+      matchHistorySection.style.display === "none" ||
+      !matchHistorySection.style.display
+        ? "block"
+        : "none";
+  });
 }
 
-window.addMatch = addMatch;
-window.startNewSeason = startNewSeason;
-window.undo = undo;
-window.clearAll = clearAll;
+// Ensure the page loads with the currently running league
+document.addEventListener("DOMContentLoaded", () => {
+  loadLeagues();
+  loadLeaderboard();
+  init();
+});
 
-document.addEventListener("DOMContentLoaded", init);
+window.createNewLeague = createNewLeague;
+window.endLeague = endLeague;
+window.deleteLeague = deleteLeague;
+window.clearAll = clearAll;
+window.addMatch = addMatch;
+window.undo = undo;
