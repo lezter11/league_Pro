@@ -26,6 +26,8 @@ const db = getDatabase(app);
 let tableData = {};
 let lastEntryKey = null;
 let currentLeague = null;
+let headToHeadData = {};
+let overallHeadToHeadData = {};
 
 function loadLeagues() {
   const leagueSelector = document.getElementById("league-selector");
@@ -37,29 +39,38 @@ function loadLeagues() {
     ref(db, "leagues"),
     (snapshot) => {
       let activeLeague = null;
-      let addedLeagues = new Set(); // Track added leagues to prevent duplicates
+      let leagues = [];
 
       snapshot.forEach((childSnapshot) => {
         const league = childSnapshot.key;
         const isActive = childSnapshot.child("active").val();
-
-        if (!addedLeagues.has(league)) {
-          const option = document.createElement("option");
-          option.value = league;
-          option.textContent = league;
-          leagueSelector.appendChild(option);
-          addedLeagues.add(league);
-        }
+        leagues.push({ name: league, isActive });
 
         if (isActive) {
           activeLeague = league;
         }
       });
 
+      // Sort leagues numerically (Season 1, Season 2, etc.)
+      leagues.sort((a, b) => {
+        const aNum = parseInt(a.name.match(/\d+/)?.[0] || '0');
+        const bNum = parseInt(b.name.match(/\d+/)?.[0] || '0');
+        return aNum - bNum;
+      });
+
+      // Add sorted leagues to dropdown
+      leagues.forEach(({ name }) => {
+        const option = document.createElement("option");
+        option.value = name;
+        option.textContent = name;
+        leagueSelector.appendChild(option);
+      });
+
       if (activeLeague) {
         currentLeague = activeLeague;
         leagueSelector.value = activeLeague;
         fetchAndRenderMatches();
+        displayCurrentSeasonWinner();
       }
     },
     { onlyOnce: true }
@@ -72,6 +83,7 @@ document
   .addEventListener("change", function () {
     currentLeague = this.value;
     fetchAndRenderMatches();
+    displayCurrentSeasonWinner();
   });
 
 function createNewLeague() {
@@ -101,11 +113,13 @@ async function endLeague() {
 
   if (winningTeam) {
     await set(ref(db, `leagues/${currentLeague}/winner`), winningTeam);
+    await set(ref(db, `leagues/${currentLeague}/winnerPoints`), maxPoints);
   }
 
   await set(ref(db, `leagues/${currentLeague}/active`), false);
   currentLeague = null;
   loadLeaderboard();
+  displayCurrentSeasonWinner();
 }
 
 function loadLeaderboard() {
@@ -114,16 +128,45 @@ function loadLeaderboard() {
 
   onValue(ref(db, "leagues"), (snapshot) => {
     leaderboardList.innerHTML = "";
-
+    
+    // Count wins for each player
+    const winCounts = {};
+    
     snapshot.forEach((childSnapshot) => {
       const leagueName = childSnapshot.key;
       const winner = childSnapshot.child("winner").val();
       if (winner) {
-        const listItem = document.createElement("li");
-        listItem.textContent = `${leagueName}: ${winner}`;
-        leaderboardList.appendChild(listItem);
+        winCounts[winner] = (winCounts[winner] || 0) + 1;
       }
     });
+
+    // Create winner counter table
+    const table = document.createElement("table");
+    table.style.width = "100%";
+    table.style.borderCollapse = "collapse";
+    table.style.marginTop = "10px";
+    
+    const thead = document.createElement("thead");
+    const headerRow = document.createElement("tr");
+    headerRow.innerHTML = `
+      <th style="padding: 8px; border: 1px solid #ddd; background: rgba(255,255,255,0.2); color: white;">Player</th>
+      <th style="padding: 8px; border: 1px solid #ddd; background: rgba(255,255,255,0.2); color: white;">Seasons Won</th>
+    `;
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
+    
+    const tbody = document.createElement("tbody");
+    Object.entries(winCounts).forEach(([player, wins]) => {
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td style="padding: 8px; border: 1px solid #ddd; background: rgba(255,255,255,0.1); color: white;">${player}</td>
+        <td style="padding: 8px; border: 1px solid #ddd; background: rgba(255,255,255,0.1); color: white; font-weight: bold;">${wins}</td>
+      `;
+      tbody.appendChild(row);
+    });
+    table.appendChild(tbody);
+    
+    leaderboardList.appendChild(table);
   });
 }
 
@@ -184,6 +227,10 @@ async function clearAll() {
     tableData = {};
     lastEntryKey = null;
     renderTable();
+    
+    // The overall head-to-head data will be updated automatically via the Firebase listener
+    // No need to manually reload it
+    
     console.log(`All matches cleared for league: ${currentLeague}`);
   } catch (error) {
     console.error("Error clearing matches:", error);
@@ -244,6 +291,9 @@ async function addMatch() {
     lastEntryKey = newMatchRef.key;
     console.log("Match added to Realtime Database with key:", lastEntryKey);
 
+    // The overall head-to-head data will be updated automatically via the Firebase listener
+    // No need to manually update it here
+
     document.getElementById("team1-score").value = "0";
     document.getElementById("team2-score").value = "0";
   } catch (error) {
@@ -262,9 +312,82 @@ async function undo() {
     await remove(ref(db, `leagues/${currentLeague}/matches/${lastEntryKey}`));
     console.log("Last entry removed:", lastEntryKey);
     lastEntryKey = null;
+    
+    // The overall head-to-head data will be updated automatically via the Firebase listener
+    // No need to manually reload it
   } catch (error) {
     console.error("Error undoing last entry:", error);
     alert("Failed to undo the last entry. Please try again.");
+  }
+}
+
+// Update Head-to-Head Statistics
+function updateHeadToHead(team1, team2, team1Score, team2Score) {
+  const key = [team1, team2].sort().join(' vs ');
+  
+  if (!headToHeadData[key]) {
+    headToHeadData[key] = {
+      matches: 0,
+      [team1]: { wins: 0, draws: 0, losses: 0, goalsFor: 0, goalsAgainst: 0 },
+      [team2]: { wins: 0, draws: 0, losses: 0, goalsFor: 0, goalsAgainst: 0 }
+    };
+  }
+  
+  const h2h = headToHeadData[key];
+  h2h.matches++;
+  
+  // Update team1 stats
+  h2h[team1].goalsFor += team1Score;
+  h2h[team1].goalsAgainst += team2Score;
+  
+  // Update team2 stats
+  h2h[team2].goalsFor += team2Score;
+  h2h[team2].goalsAgainst += team1Score;
+  
+  if (team1Score > team2Score) {
+    h2h[team1].wins++;
+    h2h[team2].losses++;
+  } else if (team1Score === team2Score) {
+    h2h[team1].draws++;
+    h2h[team2].draws++;
+  } else {
+    h2h[team1].losses++;
+    h2h[team2].wins++;
+  }
+}
+
+// Update Overall Head-to-Head Statistics (All Seasons)
+function updateOverallHeadToHead(team1, team2, team1Score, team2Score) {
+  const key = [team1, team2].sort().join(' vs ');
+  
+  if (!overallHeadToHeadData[key]) {
+    overallHeadToHeadData[key] = {
+      matches: 0,
+      [team1]: { wins: 0, draws: 0, losses: 0, goalsFor: 0, goalsAgainst: 0 },
+      [team2]: { wins: 0, draws: 0, losses: 0, goalsFor: 0, goalsAgainst: 0 }
+    };
+  }
+  
+  const h2h = overallHeadToHeadData[key];
+  h2h.matches++;
+  
+  // Update team1 stats
+  h2h[team1].goalsFor += team1Score;
+  h2h[team1].goalsAgainst += team2Score;
+  
+  // Update team2 stats
+  h2h[team2].goalsFor += team2Score;
+  h2h[team2].goalsAgainst += team1Score;
+  
+  if (team1Score > team2Score) {
+    h2h[team1].wins++;
+    h2h[team2].losses++;
+  } else if (team1Score === team2Score) {
+    h2h[team1].draws++;
+    h2h[team2].draws++;
+  } else {
+    h2h[team1].losses++;
+    h2h[team2].wins++;
   }
 }
 
@@ -350,6 +473,156 @@ function renderTable() {
   console.log("Table rendered");
 }
 
+// Render Head-to-Head Table
+function renderHeadToHeadTable() {
+  console.log("renderHeadToHeadTable called");
+  const headToHeadSection = document.getElementById("head-to-head-section");
+  if (!headToHeadSection) {
+    console.log("head-to-head-section not found");
+    return;
+  }
+  console.log("headToHeadData:", headToHeadData);
+  
+  const table = document.createElement("table");
+  table.style.width = "100%";
+  table.style.borderCollapse = "collapse";
+  table.style.marginTop = "10px";
+  
+  const thead = document.createElement("thead");
+  const headerRow = document.createElement("tr");
+  headerRow.innerHTML = `
+    <th style="padding: 8px; border: 1px solid #ddd; background: rgba(255,255,255,0.2); color: white;">Matchup</th>
+    <th style="padding: 8px; border: 1px solid #ddd; background: rgba(255,255,255,0.2); color: white;">Matches Played</th>
+    <th style="padding: 8px; border: 1px solid #ddd; background: rgba(255,255,255,0.2); color: white;">Remaining</th>
+    <th style="padding: 8px; border: 1px solid #ddd; background: rgba(255,255,255,0.2); color: white;">Wins</th>
+    <th style="padding: 8px; border: 1px solid #ddd; background: rgba(255,255,255,0.2); color: white;">Draws</th>
+    <th style="padding: 8px; border: 1px solid #ddd; background: rgba(255,255,255,0.2); color: white;">Goals For</th>
+    <th style="padding: 8px; border: 1px solid #ddd; background: rgba(255,255,255,0.2); color: white;">Goals Against</th>
+  `;
+  thead.appendChild(headerRow);
+  table.appendChild(thead);
+  
+  const tbody = document.createElement("tbody");
+  Object.entries(headToHeadData).forEach(([matchup, data]) => {
+    const [team1, team2] = matchup.split(' vs ');
+    const team1Stats = data[team1];
+    const team2Stats = data[team2];
+    const maxMatches = 19; // Each player plays 19 matches against each other
+    const remaining = maxMatches - data.matches;
+    
+    // Team 1 row
+    const row1 = document.createElement("tr");
+    row1.innerHTML = `
+      <td style="padding: 8px; border: 1px solid #ddd; background: rgba(255,255,255,0.1); color: white; font-weight: bold;">${team1}</td>
+      <td style="padding: 8px; border: 1px solid #ddd; background: rgba(255,255,255,0.1); color: white;">${data.matches}</td>
+      <td style="padding: 8px; border: 1px solid #ddd; background: rgba(255,255,255,0.1); color: white; ${remaining > 0 ? 'color: #ffeb3b;' : 'color: #4caf50;'}">${remaining}</td>
+      <td style="padding: 8px; border: 1px solid #ddd; background: rgba(255,255,255,0.1); color: white;">${team1Stats.wins}</td>
+      <td style="padding: 8px; border: 1px solid #ddd; background: rgba(255,255,255,0.1); color: white;">${team1Stats.draws}</td>
+      <td style="padding: 8px; border: 1px solid #ddd; background: rgba(255,255,255,0.1); color: white;">${team1Stats.goalsFor}</td>
+      <td style="padding: 8px; border: 1px solid #ddd; background: rgba(255,255,255,0.1); color: white;">${team1Stats.goalsAgainst}</td>
+    `;
+    tbody.appendChild(row1);
+    
+    // Team 2 row
+    const row2 = document.createElement("tr");
+    row2.innerHTML = `
+      <td style="padding: 8px; border: 1px solid #ddd; background: rgba(255,255,255,0.1); color: white; font-weight: bold;">${team2}</td>
+      <td style="padding: 8px; border: 1px solid #ddd; background: rgba(255,255,255,0.1); color: white;">${data.matches}</td>
+      <td style="padding: 8px; border: 1px solid #ddd; background: rgba(255,255,255,0.1); color: white; ${remaining > 0 ? 'color: #ffeb3b;' : 'color: #4caf50;'}">${remaining}</td>
+      <td style="padding: 8px; border: 1px solid #ddd; background: rgba(255,255,255,0.1); color: white;">${team2Stats.wins}</td>
+      <td style="padding: 8px; border: 1px solid #ddd; background: rgba(255,255,255,0.1); color: white;">${team2Stats.draws}</td>
+      <td style="padding: 8px; border: 1px solid #ddd; background: rgba(255,255,255,0.1); color: white;">${team2Stats.goalsFor}</td>
+      <td style="padding: 8px; border: 1px solid #ddd; background: rgba(255,255,255,0.1); color: white;">${team2Stats.goalsAgainst}</td>
+    `;
+    tbody.appendChild(row2);
+    
+    // Empty row for spacing
+    const spacerRow = document.createElement("tr");
+    spacerRow.innerHTML = '<td colspan="7" style="padding: 4px; background: transparent;"></td>';
+    tbody.appendChild(spacerRow);
+  });
+  table.appendChild(tbody);
+  
+  headToHeadSection.innerHTML = "";
+  headToHeadSection.appendChild(table);
+}
+
+// Render Overall Head-to-Head Table (All Seasons)
+function renderOverallHeadToHeadTable() {
+  console.log("renderOverallHeadToHeadTable called");
+  const overallHeadToHeadSection = document.getElementById("overall-head-to-head-section");
+  if (!overallHeadToHeadSection) {
+    console.log("overall-head-to-head-section not found");
+    return;
+  }
+  console.log("overallHeadToHeadData:", overallHeadToHeadData);
+  
+  const table = document.createElement("table");
+  table.style.width = "100%";
+  table.style.borderCollapse = "collapse";
+  table.style.marginTop = "10px";
+  
+  const thead = document.createElement("thead");
+  const headerRow = document.createElement("tr");
+  headerRow.innerHTML = `
+    <th style="padding: 8px; border: 1px solid #ddd; background: rgba(255,255,255,0.2); color: white;">Matchup</th>
+    <th style="padding: 8px; border: 1px solid #ddd; background: rgba(255,255,255,0.2); color: white;">Total Matches</th>
+    <th style="padding: 8px; border: 1px solid #ddd; background: rgba(255,255,255,0.2); color: white;">Wins</th>
+    <th style="padding: 8px; border: 1px solid #ddd; background: rgba(255,255,255,0.2); color: white;">Draws</th>
+    <th style="padding: 8px; border: 1px solid #ddd; background: rgba(255,255,255,0.2); color: white;">Goals For</th>
+    <th style="padding: 8px; border: 1px solid #ddd; background: rgba(255,255,255,0.2); color: white;">Goals Against</th>
+    <th style="padding: 8px; border: 1px solid #ddd; background: rgba(255,255,255,0.2); color: white;">Win Rate</th>
+  `;
+  thead.appendChild(headerRow);
+  table.appendChild(thead);
+  
+  const tbody = document.createElement("tbody");
+  Object.entries(overallHeadToHeadData).forEach(([matchup, data]) => {
+    const [team1, team2] = matchup.split(' vs ');
+    const team1Stats = data[team1];
+    const team2Stats = data[team2];
+    
+    // Calculate win rates
+    const team1WinRate = data.matches > 0 ? ((team1Stats.wins / data.matches) * 100).toFixed(1) : '0.0';
+    const team2WinRate = data.matches > 0 ? ((team2Stats.wins / data.matches) * 100).toFixed(1) : '0.0';
+    
+    // Team 1 row
+    const row1 = document.createElement("tr");
+    row1.innerHTML = `
+      <td style="padding: 8px; border: 1px solid #ddd; background: rgba(255,255,255,0.1); color: white; font-weight: bold;">${team1}</td>
+      <td style="padding: 8px; border: 1px solid #ddd; background: rgba(255,255,255,0.1); color: white;">${data.matches}</td>
+      <td style="padding: 8px; border: 1px solid #ddd; background: rgba(255,255,255,0.1); color: white;">${team1Stats.wins}</td>
+      <td style="padding: 8px; border: 1px solid #ddd; background: rgba(255,255,255,0.1); color: white;">${team1Stats.draws}</td>
+      <td style="padding: 8px; border: 1px solid #ddd; background: rgba(255,255,255,0.1); color: white;">${team1Stats.goalsFor}</td>
+      <td style="padding: 8px; border: 1px solid #ddd; background: rgba(255,255,255,0.1); color: white;">${team1Stats.goalsAgainst}</td>
+      <td style="padding: 8px; border: 1px solid #ddd; background: rgba(255,255,255,0.1); color: white;">${team1WinRate}%</td>
+    `;
+    tbody.appendChild(row1);
+    
+    // Team 2 row
+    const row2 = document.createElement("tr");
+    row2.innerHTML = `
+      <td style="padding: 8px; border: 1px solid #ddd; background: rgba(255,255,255,0.1); color: white; font-weight: bold;">${team2}</td>
+      <td style="padding: 8px; border: 1px solid #ddd; background: rgba(255,255,255,0.1); color: white;">${data.matches}</td>
+      <td style="padding: 8px; border: 1px solid #ddd; background: rgba(255,255,255,0.1); color: white;">${team2Stats.wins}</td>
+      <td style="padding: 8px; border: 1px solid #ddd; background: rgba(255,255,255,0.1); color: white;">${team2Stats.draws}</td>
+      <td style="padding: 8px; border: 1px solid #ddd; background: rgba(255,255,255,0.1); color: white;">${team2Stats.goalsFor}</td>
+      <td style="padding: 8px; border: 1px solid #ddd; background: rgba(255,255,255,0.1); color: white;">${team2Stats.goalsAgainst}</td>
+      <td style="padding: 8px; border: 1px solid #ddd; background: rgba(255,255,255,0.1); color: white;">${team2WinRate}%</td>
+    `;
+    tbody.appendChild(row2);
+    
+    // Empty row for spacing
+    const spacerRow = document.createElement("tr");
+    spacerRow.innerHTML = '<td colspan="7" style="padding: 4px; background: transparent;"></td>';
+    tbody.appendChild(spacerRow);
+  });
+  table.appendChild(tbody);
+  
+  overallHeadToHeadSection.innerHTML = "";
+  overallHeadToHeadSection.appendChild(table);
+}
+
 // Render Match History
 function renderMatchHistory(matches) {
   const matchHistoryBody = document.getElementById("match-history-body");
@@ -369,6 +642,40 @@ function renderMatchHistory(matches) {
   console.log("Match history rendered.");
 }
 
+// Load Overall Head-to-Head Data from All Seasons
+function loadOverallHeadToHeadData() {
+  console.log("Loading overall head-to-head data from all seasons...");
+  overallHeadToHeadData = {};
+  
+  onValue(ref(db, "leagues"), (snapshot) => {
+    let totalMatches = 0;
+    let seasonsWithMatches = 0;
+    
+    snapshot.forEach((leagueSnapshot) => {
+      const leagueName = leagueSnapshot.key;
+      const matches = leagueSnapshot.child("matches");
+      
+      if (matches.exists()) {
+        let seasonMatches = 0;
+        matches.forEach((matchSnapshot) => {
+          const match = matchSnapshot.val();
+          updateOverallHeadToHead(match.team1, match.team2, match.team1Score, match.team2Score);
+          seasonMatches++;
+          totalMatches++;
+        });
+        if (seasonMatches > 0) {
+          seasonsWithMatches++;
+          console.log(`Season ${leagueName}: ${seasonMatches} matches`);
+        }
+      }
+    });
+    
+    console.log(`Overall head-to-head data loaded: ${totalMatches} total matches from ${seasonsWithMatches} seasons`);
+    console.log("Overall head-to-head data:", overallHeadToHeadData);
+    renderOverallHeadToHeadTable();
+  }, { onlyOnce: false }); // Keep listening for changes
+}
+
 // Fetch Matches from Firebase and Render
 function fetchAndRenderMatches() {
   if (!currentLeague) {
@@ -379,6 +686,7 @@ function fetchAndRenderMatches() {
   const matchesRef = ref(db, `leagues/${currentLeague}/matches`);
   onValue(matchesRef, (snapshot) => {
     tableData = {};
+    headToHeadData = {}; // Only clear current season head-to-head data
     const matches = [];
 
     snapshot.forEach((childSnapshot) => {
@@ -386,16 +694,45 @@ function fetchAndRenderMatches() {
       matches.push(match);
       updateTeamStats(match.team1, match.team1Score, match.team2Score);
       updateTeamStats(match.team2, match.team2Score, match.team1Score);
+      updateHeadToHead(match.team1, match.team2, match.team1Score, match.team2Score);
+      // Don't update overall head-to-head here - it should be loaded separately
     });
 
     renderTable();
     renderMatchHistory(matches);
+    renderHeadToHeadTable();
+    // Don't render overall head-to-head here - it should be loaded separately
   });
+}
+
+// Display Current Season Winner
+function displayCurrentSeasonWinner() {
+  if (!currentLeague) return;
+  
+  onValue(ref(db, `leagues/${currentLeague}`), (snapshot) => {
+    const leagueData = snapshot.val();
+    if (leagueData && leagueData.winner) {
+      const winnerSection = document.getElementById("current-winner");
+      if (winnerSection) {
+        winnerSection.innerHTML = `
+          <div style="background: rgba(255, 255, 255, 0.2); padding: 10px; border-radius: 8px; margin: 10px 0;">
+            <h3 style="color: white; margin: 0;">🏆 ${currentLeague} Winner: ${leagueData.winner}</h3>
+            ${leagueData.winnerPoints ? `<p style="color: white; margin: 5px 0 0 0;">Points: ${leagueData.winnerPoints}</p>` : ''}
+          </div>
+        `;
+      }
+    }
+  }, { onlyOnce: true });
 }
 
 // Initialize Application
 function init() {
   fetchAndRenderMatches();
+  displayCurrentSeasonWinner();
+  loadOverallHeadToHeadData();
+
+  // Add mobile-specific improvements
+  addMobileImprovements();
 
   const matchHistoryButton = document.getElementById("match-history-btn");
   matchHistoryButton.addEventListener("click", () => {
@@ -405,6 +742,72 @@ function init() {
       !matchHistorySection.style.display
         ? "block"
         : "none";
+  });
+
+  const headToHeadButton = document.getElementById("head-to-head-btn");
+  headToHeadButton.addEventListener("click", () => {
+    const headToHeadSection = document.getElementById("head-to-head-section");
+    headToHeadSection.style.display =
+      headToHeadSection.style.display === "none" ||
+      !headToHeadSection.style.display
+        ? "block"
+        : "none";
+  });
+
+  const overallHeadToHeadButton = document.getElementById("overall-head-to-head-btn");
+  overallHeadToHeadButton.addEventListener("click", () => {
+    const overallHeadToHeadSection = document.getElementById("overall-head-to-head-section");
+    const isHidden = overallHeadToHeadSection.style.display === "none" || !overallHeadToHeadSection.style.display;
+    
+    if (isHidden) {
+      // Refresh the overall head-to-head data when showing the section
+      loadOverallHeadToHeadData();
+    }
+    
+    overallHeadToHeadSection.style.display = isHidden ? "block" : "none";
+  });
+}
+
+// Add mobile-specific improvements
+function addMobileImprovements() {
+  // Prevent zoom on double tap for iOS
+  let lastTouchEnd = 0;
+  document.addEventListener('touchend', function (event) {
+    const now = (new Date()).getTime();
+    if (now - lastTouchEnd <= 300) {
+      event.preventDefault();
+    }
+    lastTouchEnd = now;
+  }, false);
+
+  // Add touch feedback to buttons
+  const buttons = document.querySelectorAll('button');
+  buttons.forEach(button => {
+    button.addEventListener('touchstart', function() {
+      this.style.transform = 'scale(0.95)';
+    });
+    button.addEventListener('touchend', function() {
+      this.style.transform = 'scale(1)';
+    });
+  });
+
+  // Improve table scrolling on mobile
+  const tables = document.querySelectorAll('table');
+  tables.forEach(table => {
+    table.addEventListener('touchstart', function(e) {
+      this.style.overflowX = 'auto';
+    });
+  });
+
+  // Add mobile-friendly focus styles
+  const inputs = document.querySelectorAll('input, select');
+  inputs.forEach(input => {
+    input.addEventListener('focus', function() {
+      this.style.transform = 'scale(1.02)';
+    });
+    input.addEventListener('blur', function() {
+      this.style.transform = 'scale(1)';
+    });
   });
 }
 
