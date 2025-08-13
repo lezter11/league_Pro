@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>League Table</title>
     <link rel="stylesheet" href="index.css" />
   </head>
@@ -21,10 +21,23 @@
       </button>
     </div>
 
+    <!-- Current Season Winner Section -->
+    <div id="current-winner"></div>
+
     <!-- Leaderboard Section -->
     <div id="leaderboard">
-      <h2>League Winners</h2>
+      <h2>Season Winners Counter</h2>
       <ul id="leaderboard-list"></ul>
+    </div>
+
+    <!-- Head-to-Head Section -->
+    <div id="head-to-head-section" style="display: none;">
+      <h2>Head-to-Head Statistics</h2>
+    </div>
+
+    <!-- Overall Head-to-Head Section -->
+    <div id="overall-head-to-head-section" style="display: none;">
+      <h2>Overall Head-to-Head Statistics (All Seasons)</h2>
     </div>
 
     <div id="input-section">
@@ -82,9 +95,11 @@
           </div>
         </div>
       </div>
-      <button onclick="addMatch()">Add Match</button>
-      <button onclick="undo()">Undo Last Entry</button>
-      <button onclick="clearAll()">Clear All Matches</button>
+      <div class="button-container">
+        <button onclick="addMatch()">Add Match</button>
+        <button onclick="undo()">Undo Last Entry</button>
+        <button onclick="clearAll()">Clear All Matches</button>
+      </div>
     </div>
 
     <!-- Match History Section -->
@@ -103,6 +118,8 @@
       </table>
     </div>
     <button id="match-history-btn">Match History</button>
+    <button id="head-to-head-btn">Head-to-Head Stats</button>
+    <button id="overall-head-to-head-btn">Overall H2H Stats</button>
 
     <!-- League Table Section -->
     <table id="league-table">
